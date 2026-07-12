@@ -1,0 +1,10 @@
+export type Modality = 'text' | 'image' | 'document' | 'audio' | 'video'
+export type Difficulty = 'easy' | 'medium' | 'hard'
+export type BadCaseType = '无' | '事实错误' | '遗漏关键信息' | '格式不合规' | '答非所问' | '幻觉' | '表达不清' | '风险话术'
+
+export interface EvalProject { id: string; name: string; description: string; scenario: string }
+export interface TestCase { id: string; title: string; modality: Modality; inputText: string; expectedAnswer: string; evaluationCriteria: string; tags: string[]; difficulty: Difficulty }
+export interface PromptVersion { id: string; name: string; content: string; changelog: string; taskType: string; createdAt: string }
+export interface ModelProfile { id: string; name: string; text: number; vision: number; audio: number; video: number; longContext: number; structuredOutput: number; toolUse: number; reasoning: number; chinese: number; costLevel: '低' | '中' | '高'; bestFor: string; limitations: string }
+export interface DimensionScores { accuracy: number; completeness: number; format: number; usefulness: number; safety: number }
+export interface EvalResult { id: string; testCaseId: string; promptVersionId: string; modelId: string; modelName: string; modality: Modality; modelOutput: string; latencyMs: number; score: number; dimensionScores: DimensionScores; badCaseType: BadCaseType; judgeComment: string; suggestion: string; createdAt: string }
