@@ -1,0 +1,22 @@
+## V1｜Qwen 真实模型 API 接入成功
+
+### 完成内容
+- 新增 Express 后端服务
+- 通过 .env 保存 DASHSCOPE_API_KEY，避免 API Key 暴露到前端
+- 接入 Qwen / 通义千问 OpenAI 兼容接口
+- Prompt 测试台支持 Real 真实调用
+- 成功返回模型输出、latencyMs 和 token usage
+- 页面区分 Mock 模拟数据和 Real 真实调用数据
+
+### 验证结果
+- Qwen API 返回 status 200
+- qwen-plus 成功生成真实模型输出
+- 响应中包含 prompt_tokens、completion_tokens、total_tokens
+- 前端页面可以展示真实输出
+
+### 关键理解
+本地开发时存在两个服务：
+- localhost:5173 是 Vite 前端开发服务
+- 127.0.0.1:3001 是 Express 后端服务
+
+二者是不同 origin，因此 localStorage 不互通。开发时以 5173 为主要页面入口，3001 用于后端接口排查。
