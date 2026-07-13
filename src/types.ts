@@ -7,6 +7,9 @@ export interface TestCase { id: string; title: string; modality: Modality; input
 export interface PromptVersion { id: string; name: string; content: string; changelog: string; taskType: string; createdAt: string }
 export interface ModelProfile { id: string; name: string; text: number; vision: number; audio: number; video: number; longContext: number; structuredOutput: number; toolUse: number; reasoning: number; chinese: number; costLevel: '低' | '中' | '高'; bestFor: string; limitations: string }
 export interface DimensionScores { accuracy: number; completeness: number; format: number; usefulness: number; safety: number }
+export interface ModelUsage { promptTokens: number; completionTokens: number; totalTokens: number }
+export interface ChatRequest { provider: string; model: string; systemPrompt: string; userInput: string; temperature: number }
+export interface ChatResponse { provider: string; model: string; output: string; latencyMs: number; usage: ModelUsage }
 export interface EvalResult {
   id: string
   testCaseId: string
@@ -19,6 +22,9 @@ export interface EvalResult {
   promptContentSnapshot: string
   modelId: string
   modelName: string
+  provider?: string
+  apiModel?: string
+  usage?: ModelUsage
   modality: Modality
   runMode: 'mock' | 'real'
   modelOutput: string
