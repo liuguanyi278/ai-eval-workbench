@@ -7,4 +7,26 @@ export interface TestCase { id: string; title: string; modality: Modality; input
 export interface PromptVersion { id: string; name: string; content: string; changelog: string; taskType: string; createdAt: string }
 export interface ModelProfile { id: string; name: string; text: number; vision: number; audio: number; video: number; longContext: number; structuredOutput: number; toolUse: number; reasoning: number; chinese: number; costLevel: '低' | '中' | '高'; bestFor: string; limitations: string }
 export interface DimensionScores { accuracy: number; completeness: number; format: number; usefulness: number; safety: number }
-export interface EvalResult { id: string; testCaseId: string; promptVersionId: string; modelId: string; modelName: string; modality: Modality; modelOutput: string; latencyMs: number; score: number; dimensionScores: DimensionScores; badCaseType: BadCaseType; judgeComment: string; suggestion: string; createdAt: string }
+export interface EvalResult {
+  id: string
+  testCaseId: string
+  promptVersionId: string
+  testCaseTitleSnapshot: string
+  testCaseInputSnapshot: string
+  expectedAnswerSnapshot: string
+  evaluationCriteriaSnapshot: string
+  promptVersionNameSnapshot: string
+  promptContentSnapshot: string
+  modelId: string
+  modelName: string
+  modality: Modality
+  runMode: 'mock' | 'real'
+  modelOutput: string
+  latencyMs: number
+  score: number
+  dimensionScores: DimensionScores
+  badCaseType: BadCaseType
+  judgeComment: string
+  suggestion: string
+  createdAt: string
+}
