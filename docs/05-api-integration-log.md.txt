@@ -20,3 +20,23 @@
 - 127.0.0.1:3001 是 Express 后端服务
 
 二者是不同 origin，因此 localStorage 不互通。开发时以 5173 为主要页面入口，3001 用于后端接口排查。
+## V1｜真实模型调用与评测记录增强
+
+### 完成内容
+- 接入 Qwen / 通义千问真实 API
+- 新增 Express 后端，API Key 通过 .env 读取，避免暴露到前端
+- 完成前端到后端再到 Qwen API 的真实调用链路
+- Prompt 测试台支持 Provider + Model 具体模型选择
+- 支持自定义具体模型名，例如 qwen-plus、qwen3.6-plus
+- 真实评测记录保存 provider、actualModel、latencyMs、tokenUsage 和 temperature
+- 评测报告支持表头筛选
+- 最近评测记录支持点击查看详情
+- 详情页展示测试用例快照、Prompt 快照、模型输出、评分结果和调用元数据
+
+### 当前状态
+- 模型输出已是真实 API 返回
+- AI 评分仍为 Mock，后续进入 V1.1 接入 AI Judge
+- 模型能力矩阵目前仍为示例数据，后续计划与真实评测结果打通
+
+### 产品收获
+V1 将项目从前端 Mock 原型升级为真实模型评测工具，验证了从测试用例、Prompt、模型调用、输出记录到评测报告的完整闭环。
