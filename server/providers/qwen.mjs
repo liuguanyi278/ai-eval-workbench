@@ -21,13 +21,14 @@ export const qwenProvider = {
 
     const baseURL = (process.env.QWEN_BASE_URL || DEFAULT_BASE_URL).trim()
     const finalURL = buildFinalURL(baseURL)
-    const model = (process.env.QWEN_MODEL || request.model).trim()
+    const model = (request.model || process.env.QWEN_MODEL || 'qwen-plus').trim()
     if (!model) throw Object.assign(new Error('Qwen model 不能为空。'), { statusCode: 400 })
 
     // 调试日志只包含路由信息，不输出 Authorization 或 API Key。
     console.log('[Qwen] baseURL:', baseURL)
     console.log('[Qwen] finalURL:', finalURL)
     console.log('[Qwen] model:', model)
+    console.log('[Qwen] temperature:', request.temperature)
 
     const startedAt = performance.now()
     const response = await fetch(finalURL, {

@@ -23,10 +23,17 @@ export interface EvalResult {
   modelId: string
   modelName: string
   provider?: string
+  providerName?: string
+  actualModel?: string
+  modelDisplayName?: string
+  tokenUsage?: ModelUsage
+  /** @deprecated V1 compatibility alias */
   apiModel?: string
+  /** @deprecated V1 compatibility alias */
   usage?: ModelUsage
   modality: Modality
   runMode: 'mock' | 'real'
+  temperature?: number
   modelOutput: string
   latencyMs: number
   score: number
