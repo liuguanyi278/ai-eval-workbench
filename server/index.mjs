@@ -4,6 +4,7 @@ import { readFile, stat } from 'node:fs/promises'
 import { extname, join, normalize } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { getProvider } from './providers/index.mjs'
+import { runJudge } from './judge.mjs'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const dist = join(root, 'dist')
@@ -33,6 +34,15 @@ function validateChat(body) {
   return body
 }
 
+function validateJudge(body) {
+  if (typeof body.provider !== 'string' || !body.provider.trim()) throw Object.assign(new Error('provider 不能为空。'), {statusCode:400})
+  if (body.provider.trim().toLowerCase() !== 'qwen') throw Object.assign(new Error('Judge Provider 暂未接入，当前仅支持 Qwen。'), {statusCode:400})
+  const stringFields = ['judgeModel','judgeSystemPrompt','judgeUserPromptTemplate','testCaseTitle','userInput','expectedAnswer','evaluationCriteria','promptName','promptContent','modelProvider','actualModel','modelOutput']
+  for (const key of stringFields) if (body[key] !== undefined && typeof body[key] !== 'string') throw Object.assign(new Error(`Judge 请求字段类型不正确：${key}`), {statusCode:400})
+  if (!body.modelOutput?.trim()) throw Object.assign(new Error('modelOutput 不能为空。'), {statusCode:400})
+  return body
+}
+
 async function serveStatic(req, res) {
   const pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname)
   const relative = pathname === '/' ? 'index.html' : pathname.slice(1)
@@ -52,6 +62,10 @@ createServer(async (req, res) => {
     if (req.method === 'POST' && req.url === '/api/chat') {
       const input = validateChat(await readJson(req))
       return json(res, 200, await getProvider(input.provider).chat(input))
+    }
+    if (req.method === 'POST' && req.url === '/api/judge') {
+      const input = validateJudge(await readJson(req))
+      return json(res, 200, await runJudge(input))
     }
     if (req.method === 'GET' && (req.url === '/health' || req.url === '/api/health')) return json(res, 200, {status:'ok',providers:['qwen']})
     if (req.url?.startsWith('/api/')) return json(res, 404, {error:'API 路由不存在。'})

@@ -10,6 +10,34 @@ export interface DimensionScores { accuracy: number; completeness: number; forma
 export interface ModelUsage { promptTokens: number; completionTokens: number; totalTokens: number }
 export interface ChatRequest { provider: string; model: string; systemPrompt: string; userInput: string; temperature: number }
 export interface ChatResponse { provider: string; model: string; output: string; latencyMs: number; usage: ModelUsage }
+export interface JudgeRequest {
+  provider: string
+  judgeModel: string
+  judgeSystemPrompt: string
+  judgeUserPromptTemplate: string
+  testCaseTitle: string
+  userInput: string
+  expectedAnswer: string
+  evaluationCriteria: string
+  promptName: string
+  promptContent: string
+  modelProvider: string
+  actualModel: string
+  modelOutput: string
+}
+export interface JudgeResponse {
+  score: number
+  dimensionScores: DimensionScores
+  badCaseType: BadCaseType
+  judgeComment: string
+  suggestion: string
+  judgeProvider: string
+  judgeModel: string
+  judgeLatencyMs: number
+  judgeTokenUsage: ModelUsage
+  judgeSystemPrompt: string
+  judgeUserPrompt: string
+}
 export interface EvalResult {
   id: string
   testCaseId: string
@@ -41,5 +69,12 @@ export interface EvalResult {
   badCaseType: BadCaseType
   judgeComment: string
   suggestion: string
+  judgeMode?: 'mock' | 'real'
+  judgeProvider?: string
+  judgeModel?: string
+  judgeSystemPromptSnapshot?: string
+  judgeUserPromptSnapshot?: string
+  judgeLatencyMs?: number
+  judgeTokenUsage?: ModelUsage
   createdAt: string
 }
