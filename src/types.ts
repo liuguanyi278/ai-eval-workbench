@@ -76,5 +76,9 @@ export interface EvalResult {
   judgeUserPromptSnapshot?: string
   judgeLatencyMs?: number
   judgeTokenUsage?: ModelUsage
+  batchId?: string
+  batchName?: string
+  batchIndex?: number
+  batchTotal?: number
   createdAt: string
 }
