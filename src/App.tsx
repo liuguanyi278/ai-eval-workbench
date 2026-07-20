@@ -27,6 +27,7 @@ const scoreTone = (n:number) => n>=85?'good':n>=70?'warn':'bad'
 const resultTitle = (r:EvalResult) => r.testCaseTitleSnapshot || '历史示例记录'
 const resultPrompt = (r:EvalResult) => r.promptVersionNameSnapshot || '历史示例记录'
 const resultModel = (r:EvalResult) => r.modelDisplayName || (r.actualModel ? `${r.providerName || r.modelName || r.provider || '未知供应商'} / ${r.actualModel}` : r.modelName || '未知模型')
+const resultJudge = (r:EvalResult) => r.judgeMode === 'mock' ? 'Mock' : r.judgeMode === 'real' ? `${r.judgeProvider?.toLowerCase() === 'qwen' ? 'Qwen' : r.judgeProvider || '未知供应商'} / ${r.judgeModel || '未记录模型'}` : '未记录'
 function normalizeData(raw:any){
   const testCaseById = new Map((raw.testCases || []).map((x:TestCase)=>[x.id,x]))
   const promptById = new Map((raw.promptVersions || []).map((x:PromptVersion)=>[x.id,x]))
@@ -236,15 +237,98 @@ function ReportTable({data}:any){
  const options=(get:(r:EvalResult)=>string)=>Array.from(new Set(rs.map(get))).sort((a,b)=>a.localeCompare(b,'zh-CN'))
  const tempLabel=(r:EvalResult)=>typeof r.temperature==='number'?String(r.temperature):'未记录'
  const tempOptions=Array.from(new Set(rs.map(tempLabel))).sort((a,b)=>a==='未记录'?1:b==='未记录'?-1:Number(a)-Number(b))
- const judgeLabel=(r:EvalResult)=>r.judgeMode==='mock'?'Mock':r.judgeMode==='real'?`${r.judgeProvider?.toLowerCase()==='qwen'?'Qwen':r.judgeProvider||'未知供应商'} / ${r.judgeModel||'未记录模型'}`:'未记录'
- const judgeModels=Array.from(new Set(rs.filter(r=>r.judgeMode==='real'&&r.judgeProvider&&r.judgeModel).map(judgeLabel))).sort((a,b)=>a.localeCompare(b,'zh-CN'))
+ const judgeModels=Array.from(new Set(rs.filter(r=>r.judgeMode==='real'&&r.judgeProvider&&r.judgeModel).map(resultJudge))).sort((a,b)=>a.localeCompare(b,'zh-CN'))
  const judgeChoices=[['mock','Mock'],['real','Real AI Judge'],['unrecorded','未记录'],...judgeModels.map(x=>[`model:${x}`,x])]
- const matchesJudge=(r:EvalResult)=>judgeFilter==='all'||(judgeFilter==='mock'&&r.judgeMode==='mock')||(judgeFilter==='real'&&r.judgeMode==='real')||(judgeFilter==='unrecorded'&&!r.judgeMode)||(judgeFilter.startsWith('model:')&&r.judgeMode==='real'&&judgeLabel(r)===judgeFilter.slice(6))
+ const matchesJudge=(r:EvalResult)=>judgeFilter==='all'||(judgeFilter==='mock'&&r.judgeMode==='mock')||(judgeFilter==='real'&&r.judgeMode==='real')||(judgeFilter==='unrecorded'&&!r.judgeMode)||(judgeFilter.startsWith('model:')&&r.judgeMode==='real'&&resultJudge(r)===judgeFilter.slice(6))
  const recent=rs.filter(r=>caseFilter==='all'||resultTitle(r)===caseFilter).filter(r=>modelFilter==='all'||resultModel(r)===modelFilter).filter(r=>promptFilter==='all'||resultPrompt(r)===promptFilter).filter(r=>tempFilter==='all'||tempLabel(r)===tempFilter).filter(matchesJudge).filter(r=>sourceFilter==='all'||r.runMode===sourceFilter).filter(r=>badFilter==='all'||(badFilter==='bad'?isBad(r):!isBad(r))).filter(r=>scoreFilter==='all'||(scoreFilter==='low'?r.score<70:scoreFilter==='medium'?r.score>=70&&r.score<=84:r.score>=85)).sort((a,b)=>(sortOrder==='newest'?1:-1)*(+new Date(b.createdAt)-+new Date(a.createdAt)))
- const emptyText=filter==='real'?'暂无真实 API 评测记录':'保存评测记录后即可生成报告'
- return <><PageHead eyebrow="EVALUATION REPORT" title="评测报告" desc="汇总已保存记录，观察模型和 Prompt 版本的真实差异。" action={<div className="report-filter">{([['all','全部记录'],['mock','仅 Mock'],['real','仅真实']] as const).map(([id,label])=><button key={id} className={filter===id?'active':''} onClick={()=>setFilter(id)}>{label}</button>)}</div>}/>{!rs.length?<Empty text={emptyText}/>:<><section className="report-metrics"><Metric label="平均分" value={avg(rs.map(r=>r.score))} sub="当前筛选范围" icon={CircleGauge} tone="cyan"/><Metric label="通过率" value={`${Math.round(rs.filter(r=>r.score>=70).length/rs.length*100)}%`} sub="通过线 ≥ 70 分" icon={Check} tone="green"/><Metric label="总测试次数" value={rs.length} sub="当前筛选记录" icon={FlaskConical} tone="violet"/><Metric label="Bad Case" value={bads} sub="需要持续优化" icon={AlertTriangle} tone="orange"/></section>
+ return <><PageHead eyebrow="EVALUATION REPORT" title="评测报告" desc="汇总已保存记录，观察模型和 Prompt 版本的真实差异。" action={<div className="report-filter">{([['all','全部记录'],['mock','仅 Mock'],['real','仅真实']] as const).map(([id,label])=><button key={id} className={filter===id?'active':''} onClick={()=>setFilter(id)}>{label}</button>)}</div>}/>{!rs.length?<PromptComparison records={rs} openRecord={setSelected}/>:<><section className="report-metrics"><Metric label="平均分" value={avg(rs.map(r=>r.score))} sub="当前筛选范围" icon={CircleGauge} tone="cyan"/><Metric label="通过率" value={`${Math.round(rs.filter(r=>r.score>=70).length/rs.length*100)}%`} sub="通过线 ≥ 70 分" icon={Check} tone="green"/><Metric label="总测试次数" value={rs.length} sub="当前筛选记录" icon={FlaskConical} tone="violet"/><Metric label="Bad Case" value={bads} sub="需要持续优化" icon={AlertTriangle} tone="orange"/></section>
  <div className="report-grid"><div className="panel"><div className="panel-title"><div><h3>各维度平均分</h3><p>五项核心评测指标</p></div></div><div className="bar-chart">{dims.map(k=>{const n=avg(rs.map(r=>r.dimensionScores[k]));return <div key={k}><span>{({accuracy:'准确性',completeness:'完整性',format:'格式合规',usefulness:'有用性',safety:'风险控制'} as any)[k]}</span><i><em style={{width:`${n}%`}}/></i><b>{n}</b></div>})}</div></div><Rank title="按模型统计" items={by(resultModel)} name={(k:string)=>k}/><Rank title="按 Prompt 版本统计" items={by(resultPrompt)} name={(k:string)=>k}/></div>
- <div className="panel recent-table"><div className="panel-title"><div><h3>最近评测记录</h3><p>点击任意记录查看完整评测详情</p></div><span className="record-count">{recent.length} / {rs.length} 条</span></div><div className="table-wrap"><table><thead><tr><th>测试用例</th><th>模型</th><th>Prompt</th><th>Temp</th><th>数据来源</th><th>Judge</th><th>Bad Case</th><th>得分</th><th>时间</th></tr><tr className="table-filter-row"><th><TableFilter label="筛选测试用例" value={caseFilter} set={setCaseFilter} options={options(resultTitle)}/></th><th><TableFilter label="筛选模型" value={modelFilter} set={setModelFilter} options={options(resultModel)}/></th><th><TableFilter label="筛选 Prompt" value={promptFilter} set={setPromptFilter} options={options(resultPrompt)}/></th><th><TableFilter label="筛选 temperature" value={tempFilter} set={setTempFilter} options={tempOptions}/></th><th><TableFilter label="筛选数据来源" value={sourceFilter} set={setSourceFilter} choices={[["mock","Mock"],["real","Real"]]}/></th><th><TableFilter label="筛选 Judge" value={judgeFilter} set={setJudgeFilter} choices={judgeChoices}/></th><th><TableFilter label="筛选 Bad Case" value={badFilter} set={setBadFilter} choices={[["bad","仅 Bad Case"],["normal","非 Bad Case"]]}/></th><th><TableFilter label="筛选得分" value={scoreFilter} set={setScoreFilter} choices={[["low","< 70"],["medium","70–84"],["high","≥ 85"]]}/></th><th><TableFilter label="时间排序" value={sortOrder} set={setSortOrder} allLabel="" choices={[["newest","最新优先"],["oldest","最旧优先"]]}/></th></tr></thead><tbody>{recent.length?recent.map(r=><tr className="record-row" tabIndex={0} key={r.id} onClick={()=>setSelected(r)} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setSelected(r)}}}><td><b>{resultTitle(r)}</b></td><td className="full-model-name">{resultModel(r)}</td><td>{resultPrompt(r)}</td><td className="temp-cell">{tempLabel(r)}</td><td>{r.runMode==='mock'?<MockBadge/>:<RealBadge/>}</td><td className="judge-cell">{judgeLabel(r)}</td><td><span className={`badge ${r.badCaseType==='无'?'good':'bad'}`}>{r.badCaseType}</span></td><td><strong className={scoreTone(r.score)}>{r.score}</strong></td><td>{fmt(r.createdAt)}</td></tr>):<tr className="table-empty-row"><td colSpan={9}><Empty text="没有符合当前筛选条件的评测记录"/></td></tr>}</tbody></table></div></div></>}{selected&&<RecordDetail record={selected} close={()=>setSelected(null)}/>}</>
+ <PromptComparison records={rs} openRecord={setSelected}/>
+ <div className="panel recent-table"><div className="panel-title"><div><h3>最近评测记录</h3><p>点击任意记录查看完整评测详情</p></div><span className="record-count">{recent.length} / {rs.length} 条</span></div><div className="table-wrap"><table><thead><tr><th>测试用例</th><th>模型</th><th>Prompt</th><th>Temp</th><th>数据来源</th><th>Judge</th><th>Bad Case</th><th>得分</th><th>时间</th></tr><tr className="table-filter-row"><th><TableFilter label="筛选测试用例" value={caseFilter} set={setCaseFilter} options={options(resultTitle)}/></th><th><TableFilter label="筛选模型" value={modelFilter} set={setModelFilter} options={options(resultModel)}/></th><th><TableFilter label="筛选 Prompt" value={promptFilter} set={setPromptFilter} options={options(resultPrompt)}/></th><th><TableFilter label="筛选 temperature" value={tempFilter} set={setTempFilter} options={tempOptions}/></th><th><TableFilter label="筛选数据来源" value={sourceFilter} set={setSourceFilter} choices={[["mock","Mock"],["real","Real"]]}/></th><th><TableFilter label="筛选 Judge" value={judgeFilter} set={setJudgeFilter} choices={judgeChoices}/></th><th><TableFilter label="筛选 Bad Case" value={badFilter} set={setBadFilter} choices={[["bad","仅 Bad Case"],["normal","非 Bad Case"]]}/></th><th><TableFilter label="筛选得分" value={scoreFilter} set={setScoreFilter} choices={[["low","< 70"],["medium","70–84"],["high","≥ 85"]]}/></th><th><TableFilter label="时间排序" value={sortOrder} set={setSortOrder} allLabel="" choices={[["newest","最新优先"],["oldest","最旧优先"]]}/></th></tr></thead><tbody>{recent.length?recent.map(r=><tr className="record-row" tabIndex={0} key={r.id} onClick={()=>setSelected(r)} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setSelected(r)}}}><td><b>{resultTitle(r)}</b></td><td className="full-model-name">{resultModel(r)}</td><td>{resultPrompt(r)}</td><td className="temp-cell">{tempLabel(r)}</td><td>{r.runMode==='mock'?<MockBadge/>:<RealBadge/>}</td><td className="judge-cell">{resultJudge(r)}</td><td><span className={`badge ${r.badCaseType==='无'?'good':'bad'}`}>{r.badCaseType}</span></td><td><strong className={scoreTone(r.score)}>{r.score}</strong></td><td>{fmt(r.createdAt)}</td></tr>):<tr className="table-empty-row"><td colSpan={9}><Empty text="没有符合当前筛选条件的评测记录"/></td></tr>}</tbody></table></div></div></>}{selected&&<RecordDetail record={selected} close={()=>setSelected(null)}/>}</>
+}
+
+type ComparisonStats={count:number;score:number|null;dimensions:Record<keyof DimensionScores,number|null>;badCount:number;badRate:number|null;latency:number|null;tokens:number|null;latest:EvalResult|null}
+const knownAverage=(values:(number|undefined|null)[])=>{const known=values.filter((x):x is number=>typeof x==='number'&&Number.isFinite(x));return known.length?Math.round(known.reduce((a,b)=>a+b,0)/known.length*10)/10:null}
+const summarizePrompt=(records:EvalResult[]):ComparisonStats=>{
+ const dimension=(key:keyof DimensionScores)=>knownAverage(records.map(r=>r.dimensionScores?.[key]))
+ const badCount=records.filter(r=>r.score<70||Boolean(r.badCaseType&&r.badCaseType!=='无')).length
+ const latest=records.slice().sort((a,b)=>+new Date(b.createdAt)-+new Date(a.createdAt))[0]||null
+ return {count:records.length,score:knownAverage(records.map(r=>r.score)),dimensions:{accuracy:dimension('accuracy'),completeness:dimension('completeness'),format:dimension('format'),usefulness:dimension('usefulness'),safety:dimension('safety')},badCount,badRate:records.length?Math.round(badCount/records.length*1000)/10:null,latency:knownAverage(records.map(r=>r.latencyMs)),tokens:knownAverage(records.map(r=>r.tokenUsage?.totalTokens??r.usage?.totalTokens)),latest}
+}
+function PromptComparison({records,openRecord}:{records:EvalResult[];openRecord:(r:EvalResult)=>void}){
+ const unique=(values:string[])=>Array.from(new Set(values)).sort((a,b)=>a.localeCompare(b,'zh-CN'))
+ const cases=unique(records.map(resultTitle))
+ const [caseName,setCaseName]=useState('')
+ const activeCase=cases.includes(caseName)?caseName:cases[0]||''
+ const caseRecords=records.filter(r=>resultTitle(r)===activeCase)
+ const models=unique(caseRecords.map(resultModel))
+ const [modelName,setModelName]=useState('')
+ const activeModel=models.includes(modelName)?modelName:models[0]||''
+ const modelRecords=caseRecords.filter(r=>resultModel(r)===activeModel)
+ const judges=unique(modelRecords.map(resultJudge))
+ const [judgeName,setJudgeName]=useState('')
+ const activeJudge=judges.includes(judgeName)?judgeName:judges[0]||''
+ const comparable=modelRecords.filter(r=>resultJudge(r)===activeJudge)
+ const prompts=unique(comparable.map(resultPrompt))
+ const [promptA,setPromptA]=useState('')
+ const [promptB,setPromptB]=useState('')
+ const activeA=prompts.includes(promptA)?promptA:prompts[0]||''
+ const activeB=prompts.includes(promptB)?promptB:prompts.find(p=>p!==activeA)||prompts[0]||''
+ const recordsA=comparable.filter(r=>resultPrompt(r)===activeA)
+ const recordsB=comparable.filter(r=>resultPrompt(r)===activeB)
+ const statsA=useMemo(()=>summarizePrompt(recordsA),[recordsA])
+ const statsB=useMemo(()=>summarizePrompt(recordsB),[recordsB])
+ const samePrompt=Boolean(activeA&&activeB&&activeA===activeB)
+ const dimensions:[keyof DimensionScores,string][]=[['accuracy','准确性'],['completeness','完整性'],['format','格式合规'],['usefulness','有用性'],['safety','风险控制']]
+ const number=(value:number|null,suffix='')=>value===null?'未记录':`${value}${suffix}`
+ const signed=(a:number|null,b:number|null,suffix='')=>a===null||b===null?'-':`${b-a>0?'+':''}${Math.round((b-a)*10)/10}${suffix}`
+ const diffClass=(a:number|null,b:number|null,lowerIsBetter=false)=>a===null||b===null||a===b?'':(lowerIsBetter?b<a:b>a)?'diff-good':'diff-bad'
+ const rows=[
+  {label:'记录数量',a:String(statsA.count),b:String(statsB.count),diff:signed(statsA.count,statsB.count),tone:''},
+  {label:'平均总分',a:number(statsA.score),b:number(statsB.score),diff:signed(statsA.score,statsB.score),tone:diffClass(statsA.score,statsB.score)},
+  ...dimensions.map(([key,label])=>({label,a:number(statsA.dimensions[key]),b:number(statsB.dimensions[key]),diff:signed(statsA.dimensions[key],statsB.dimensions[key]),tone:diffClass(statsA.dimensions[key],statsB.dimensions[key])})),
+  {label:'Bad Case 数',a:String(statsA.badCount),b:String(statsB.badCount),diff:signed(statsA.badCount,statsB.badCount),tone:diffClass(statsA.badCount,statsB.badCount,true)},
+  {label:'Bad Case 率',a:number(statsA.badRate,'%'),b:number(statsB.badRate,'%'),diff:signed(statsA.badRate,statsB.badRate,'%'),tone:diffClass(statsA.badRate,statsB.badRate,true)},
+  {label:'平均耗时',a:number(statsA.latency,' ms'),b:number(statsB.latency,' ms'),diff:signed(statsA.latency,statsB.latency,' ms'),tone:diffClass(statsA.latency,statsB.latency,true)},
+  {label:'平均 Token',a:number(statsA.tokens),b:number(statsB.tokens),diff:signed(statsA.tokens,statsB.tokens),tone:diffClass(statsA.tokens,statsB.tokens,true)},
+  {label:'最近评测时间',a:statsA.latest?fmt(statsA.latest.createdAt):'未记录',b:statsB.latest?fmt(statsB.latest.createdAt):'未记录',diff:'-',tone:''}
+ ]
+ const conclusion=()=>{
+  if(statsA.score===null||statsB.score===null)return '当前记录缺少可用总分，暂时无法生成结论。'
+  const gap=statsB.score-statsA.score
+  const close=Math.abs(gap)<5
+  const higher=gap>=0?statsB:statsA,lower=gap>=0?statsA:statsB,higherName=gap>=0?activeB:activeA
+  const tokenHigher=statsA.tokens!==null&&statsB.tokens!==null?(statsA.tokens>statsB.tokens*1.5?activeA:statsB.tokens>statsA.tokens*1.5?activeB:''):''
+  const latencyHigher=statsA.latency!==null&&statsB.latency!==null?(statsA.latency>statsB.latency*1.5?activeA:statsB.latency>statsA.latency*1.5?activeB:''):''
+  const higherUsesLess=gap!==0&&higher.tokens!==null&&lower.tokens!==null&&higher.latency!==null&&lower.latency!==null&&higher.tokens<lower.tokens&&higher.latency<lower.latency
+  const higherCostsMore=gap!==0&&((higher.tokens!==null&&lower.tokens!==null&&higher.tokens>lower.tokens*1.5)||(higher.latency!==null&&lower.latency!==null&&higher.latency>lower.latency*1.5))
+  const parts:string[]=[]
+  if(close){
+   parts.push('两个 Prompt 效果接近。')
+   if(tokenHigher)parts.push(`${tokenHigher} 平均 Token 高出 50% 以上，效果接近，但成本更高。`)
+   if(latencyHigher)parts.push(`${latencyHigher} 平均耗时高出 50% 以上，效果接近，但响应更慢。`)
+   if(higherUsesLess)parts.push(`${higherName} 分数略高，且平均 Token 和耗时更低，效果和成本表现均更优。`)
+   else if(higherCostsMore)parts.push(`从得分看 ${higherName} 效果更好，但需要结合成本和响应速度判断。`)
+   else if(!tokenHigher&&!latencyHigher)parts.push('建议结合 Bad Case 和成本进一步判断。')
+  }else if(higherUsesLess)parts.push(`${higherName} 分数更高，且平均 Token 和耗时更低，效果和成本表现均更优。`)
+  else if(higherCostsMore)parts.push(`${higherName} 效果更好，但 Token 或耗时也明显更高，需要结合成本和响应速度判断。`)
+  else parts.push(`${higherName} 平均分更高，建议优先使用 ${higherName}。`)
+  const dimensionGaps=dimensions.map(([key,label])=>({label,gap:statsA.dimensions[key]===null||statsB.dimensions[key]===null?null:Math.abs((statsB.dimensions[key] as number)-(statsA.dimensions[key] as number))})).filter(x=>x.gap!==null).sort((a,b)=>(b.gap as number)-(a.gap as number))
+  if(dimensionGaps[0]&&(dimensionGaps[0].gap as number)>0)parts.push(`主要差异来自“${dimensionGaps[0].label}”维度。`)
+  return parts.join('')
+ }
+ const representative=(label:string,name:string,record:EvalResult|null)=><article className="comparison-record" role={record?'button':undefined} tabIndex={record?0:undefined} onClick={()=>record&&openRecord(record)} onKeyDown={e=>{if(record&&(e.key==='Enter'||e.key===' ')){e.preventDefault();openRecord(record)}}}><div><span>{label}</span><b>{name||'未选择'}</b></div>{record?<><div className="comparison-record-meta"><span>{fmt(record.createdAt)}</span><strong className={scoreTone(record.score)}>{record.score} 分</strong><span className={`badge ${!record.badCaseType?'neutral':record.badCaseType==='无'?'good':'bad'}`}>{record.badCaseType||'未记录'}</span></div><p>{record.modelOutput?.slice(0,200)||'未记录模型输出'}{record.modelOutput?.length>200?'…':''}</p><small>{record.judgeComment?.slice(0,150)||'未记录 Judge 评审意见'}{record.judgeComment?.length>150?'…':''}</small></>:<p>暂无代表记录</p>}</article>
+ return <section className="panel prompt-comparison">
+  <div className="panel-title"><div><h3>Prompt 对比分析</h3><p>在相同测试用例、模型和 Judge 条件下比较两个 Prompt 版本</p></div></div>
+  {records.length<2?<Empty text="暂无足够评测记录用于对比，请先保存至少两个不同 Prompt 的评测记录。"/>:<>
+   <div className="comparison-filters"><FilterSelect label="测试用例" value={activeCase} set={setCaseName} options={cases} allLabel=""/><FilterSelect label="模型" value={activeModel} set={setModelName} options={models} allLabel=""/><FilterSelect label="Judge" value={activeJudge} set={setJudgeName} options={judges} allLabel=""/><FilterSelect label="Prompt A" value={activeA} set={setPromptA} options={prompts} allLabel=""/><FilterSelect label="Prompt B" value={activeB} set={setPromptB} options={prompts} allLabel=""/></div>
+   {prompts.length<2?<Empty text="当前条件下只有一个 Prompt 版本，无法对比。"/>:samePrompt?<Empty text="请选择两个不同的 Prompt 版本。"/>:<>
+    <div className="table-wrap comparison-table"><table><thead><tr><th>指标</th><th>{activeA}</th><th>{activeB}</th><th>差异</th></tr></thead><tbody>{rows.map(row=><tr key={row.label}><td><b>{row.label}</b></td><td>{row.a}</td><td>{row.b}</td><td className={row.tone}>{row.diff}</td></tr>)}</tbody></table></div>
+    <div className="comparison-conclusion"><Sparkles size={16}/><div><b>自动结论</b><p>{conclusion()}</p></div></div>
+    <div className="comparison-records">{representative('Prompt A',activeA,statsA.latest)}{representative('Prompt B',activeB,statsB.latest)}</div>
+   </>}
+  </>}
+ </section>
 }
 function TableFilter({label,value,set,options=[],choices=[],allLabel='全部'}:any){return <select aria-label={label} value={value} onChange={e=>set(e.target.value)}>{allLabel&&<option value="all">{allLabel}</option>}{choices.map(([id,text]:string[])=><option value={id} key={id}>{text}</option>)}{options.map((x:string)=><option value={x} key={x}>{x}</option>)}</select>}
 
