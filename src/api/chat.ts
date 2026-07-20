@@ -1,7 +1,8 @@
 import type { ChatRequest, ChatResponse } from '../types'
+import { apiUrl } from './config'
 
 export async function requestChat(input: ChatRequest): Promise<ChatResponse> {
-  const response = await fetch('/api/chat', {
+  const response = await fetch(apiUrl('/api/chat'), {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
     body: JSON.stringify(input)

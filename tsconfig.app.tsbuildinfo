@@ -1,1 +1,1 @@
-{"root":["./src/app.tsx","./src/data.ts","./src/judgedefaults.ts","./src/main.tsx","./src/types.ts","./src/api/chat.ts","./src/api/judge.ts"],"version":"5.9.3"}
+{"root":["./src/app.tsx","./src/data.ts","./src/judgedefaults.ts","./src/main.tsx","./src/types.ts","./src/vite-env.d.ts","./src/api/chat.ts","./src/api/config.ts","./src/api/judge.ts"],"version":"5.9.3"}

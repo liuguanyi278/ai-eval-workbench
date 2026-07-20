@@ -9,11 +9,25 @@ import { runJudge } from './judge.mjs'
 const root = fileURLToPath(new URL('..', import.meta.url))
 const dist = join(root, 'dist')
 const port = Number(process.env.PORT || 3001)
+const host = process.env.HOST || '0.0.0.0'
 const types = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.ico':'image/x-icon'}
+const allowedOrigins = new Set(['http://localhost:5173','http://127.0.0.1:5173'])
+for (const origin of (process.env.CORS_ORIGIN || '').split(',').map(value => value.trim()).filter(Boolean)) allowedOrigins.add(origin)
 
 function json(res, status, body) {
   res.writeHead(status, {'Content-Type':'application/json; charset=utf-8'})
   res.end(JSON.stringify(body))
+}
+
+function applyCors(req, res) {
+  const origin = req.headers.origin
+  if (!origin) return true
+  if (!allowedOrigins.has(origin)) return false
+  res.setHeader('Access-Control-Allow-Origin', origin)
+  res.setHeader('Vary', 'Origin')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+  return true
 }
 
 async function readJson(req) {
@@ -57,8 +71,13 @@ async function serveStatic(req, res) {
   } catch { json(res, 404, {error:'前端构建文件不存在，请先运行 npm run build。'}) }
 }
 
-createServer(async (req, res) => {
+const server = createServer(async (req, res) => {
   try {
+    if (!applyCors(req, res)) return json(res, 403, {error:'当前 Origin 未被 CORS_ORIGIN 允许。'})
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204)
+      return res.end()
+    }
     if (req.method === 'POST' && req.url === '/api/chat') {
       const input = validateChat(await readJson(req))
       return json(res, 200, await getProvider(input.provider).chat(input))
@@ -67,7 +86,7 @@ createServer(async (req, res) => {
       const input = validateJudge(await readJson(req))
       return json(res, 200, await runJudge(input))
     }
-    if (req.method === 'GET' && (req.url === '/health' || req.url === '/api/health')) return json(res, 200, {status:'ok',providers:['qwen']})
+    if (req.method === 'GET' && (req.url === '/health' || req.url === '/api/health')) return json(res, 200, {ok:true,service:'ai-eval-api'})
     if (req.url?.startsWith('/api/')) return json(res, 404, {error:'API 路由不存在。'})
     await serveStatic(req, res)
   } catch (error) {
@@ -77,4 +96,8 @@ createServer(async (req, res) => {
       details:typeof error.details === 'string' ? error.details.slice(0, 500) : ''
     })
   }
-}).listen(port, '127.0.0.1', () => console.log(`AI Eval API listening on http://127.0.0.1:${port}`))
+})
+
+server.listen(port, host, () => console.log(`AI Eval API listening on http://${host}:${port}`))
+
+export { server }
